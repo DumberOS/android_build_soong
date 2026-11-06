@@ -207,15 +207,24 @@ func bootProfileCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig,
 
 // Returns the dex location of a system server java library.
 func GetSystemServerDexLocation(ctx android.PathContext, global *GlobalConfig, lib string) string {
-	if apex := global.AllApexSystemServerJars(ctx).ApexOfJar(lib); apex != "" {
+	apex := global.AllApexSystemServerJars(ctx).ApexOfJar(lib)
+	if apex == "" {
+		apex = global.AllPlatformSystemServerJars(ctx).ApexOfJar(lib)
+	}
+	if apex == "" {
+		apex = "platform"
+	}
+	// Match ConfiguredJarList.DevicePaths, used to generate the classpath.
+	// Module names can differ from installed jar stems.
+	apex, lib = android.OverrideConfiguredJarLocationFor(ctx.Config(), apex, lib)
+	switch apex {
+	case "system_ext":
+		return fmt.Sprintf("/system_ext/framework/%s.jar", lib)
+	case "platform":
+		return fmt.Sprintf("/system/framework/%s.jar", lib)
+	default:
 		return fmt.Sprintf("/apex/%s/javalib/%s.jar", apex, lib)
 	}
-
-	if apex := global.AllPlatformSystemServerJars(ctx).ApexOfJar(lib); apex == "system_ext" {
-		return fmt.Sprintf("/system_ext/framework/%s.jar", lib)
-	}
-
-	return fmt.Sprintf("/system/framework/%s.jar", lib)
 }
 
 // Returns the location to the odex file for the dex file at `path`.

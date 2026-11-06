@@ -204,6 +204,32 @@ func TestDexPreoptApexSystemServerJars(t *testing.T) {
 	android.AssertStringEquals(t, "installs", wantInstalls.String(), rule.Installs().String())
 }
 
+func TestSystemServerDexLocationOverrides(t *testing.T) {
+	result := android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+		variables.ConfiguredJarLocationOverrides = []string{
+			"platform:service-old:platform:service-new",
+			"system_ext:ext-old:system_ext:ext-new",
+			"com.android.example:apex-old:com.android.example:apex-new",
+		}
+	}).RunTest(t)
+	ctx := android.BuilderContextForTesting(result.Config)
+	global := GlobalConfigForTests(ctx)
+	global.SystemServerJars = android.CreateTestConfiguredJarList([]string{
+		"platform:service-old", "platform:unchanged", "system_ext:ext-old",
+	})
+	global.ApexSystemServerJars = android.CreateTestConfiguredJarList([]string{
+		"com.android.example:apex-old",
+	})
+	for name, want := range map[string]string{
+		"service-old": "/system/framework/service-new.jar",
+		"unchanged":   "/system/framework/unchanged.jar",
+		"ext-old":     "/system_ext/framework/ext-new.jar",
+		"apex-old":    "/apex/com.android.example/javalib/apex-new.jar",
+	} {
+		android.AssertStringEquals(t, name, want, GetSystemServerDexLocation(ctx, global, name))
+	}
+}
+
 func TestDexPreoptStandaloneSystemServerJars(t *testing.T) {
 	config := android.TestConfig("out", nil, "", nil)
 	ctx := android.BuilderContextForTesting(config)
